@@ -1,21 +1,23 @@
-use crate::conversion::gazetteer_entities::convert_to_slot_value;
-use crate::errors::*;
-use failure::{format_err, ResultExt};
-pub use gazetteer_entity_parser::{
-    EntityValue, Parser as EntityParser, ParserBuilder as EntityParserBuilder,
-};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use snips_nlu_ontology::{BuiltinEntity, BuiltinGazetteerEntityKind, IntoBuiltinEntityKind};
-use snips_nlu_utils::string::substring_with_char_range;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
 use std::ops::Range;
 use std::path::Path;
 
+use failure::{format_err, ResultExt};
+pub use gazetteer_entity_parser::{
+    EntityValue, Parser as EntityParser, ParserBuilder as EntityParserBuilder,
+};
+use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use snips_nlu_ontology::{BuiltinEntity, BuiltinGazetteerEntityKind, IntoBuiltinEntityKind};
+use snips_nlu_utils::string::substring_with_char_range;
+
+use crate::conversion::gazetteer_entities::convert_to_slot_value;
+use crate::errors::*;
+
 pub trait EntityIdentifier:
-    Clone + Debug + PartialEq + Serialize + DeserializeOwned + Sized
+Clone + Debug + PartialEq + Serialize + DeserializeOwned + Sized
 {
     fn try_from_identifier(identifier: String) -> Result<Self>;
     fn into_identifier(self) -> String;
@@ -43,8 +45,8 @@ impl EntityIdentifier for BuiltinGazetteerEntityKind {
 
 #[derive(PartialEq, Debug)]
 pub struct GazetteerParser<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     entity_parsers: Vec<GazetteerEntityParser<T>>,
 }
@@ -53,7 +55,7 @@ impl GazetteerParser<BuiltinGazetteerEntityKind> {
     pub fn extend_gazetteer_entity(
         &mut self,
         entity_kind: BuiltinGazetteerEntityKind,
-        entity_values: impl Iterator<Item = EntityValue>,
+        entity_values: impl Iterator<Item=EntityValue>,
     ) -> Result<()> {
         self.entity_parsers
             .iter_mut()
@@ -64,14 +66,15 @@ impl GazetteerParser<BuiltinGazetteerEntityKind> {
                     "Cannot find gazetteer parser for entity '{:?}'",
                     entity_kind
                 )
-            })
+            })?;
+        Ok(())
     }
 }
 
 #[derive(PartialEq, Debug)]
 struct GazetteerEntityParser<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     entity_identifier: T,
     parser: EntityParser,
@@ -90,8 +93,8 @@ pub struct GazetteerEntityParserBuilder {
 
 impl GazetteerParserBuilder {
     pub fn build<T>(self) -> Result<GazetteerParser<T>>
-    where
-        T: EntityIdentifier,
+        where
+            T: EntityIdentifier,
     {
         let entity_parsers = self
             .entity_parsers
@@ -104,8 +107,8 @@ impl GazetteerParserBuilder {
 
 impl GazetteerEntityParserBuilder {
     fn build<T>(self) -> Result<GazetteerEntityParser<T>>
-    where
-        T: EntityIdentifier,
+        where
+            T: EntityIdentifier,
     {
         Ok(GazetteerEntityParser {
             entity_identifier: T::try_from_identifier(self.entity_identifier)?,
@@ -116,8 +119,8 @@ impl GazetteerEntityParserBuilder {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct GazetteerEntityMatch<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     pub value: String,
     pub resolved_value: String,
@@ -127,8 +130,8 @@ where
 }
 
 impl<T> GazetteerParser<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     pub fn extract_entities(
         &self,
@@ -147,7 +150,7 @@ where
             .map(|parser| {
                 Ok(parser
                     .parser
-                    .run(&sentence.to_lowercase(), max_alternative_resolved_values)?
+                    .run(&sentence.to_lowercase(), max_alternative_resolved_values)
                     .into_iter()
                     .map(|parsed_value| GazetteerEntityMatch {
                         value: substring_with_char_range(sentence.to_string(), &parsed_value.range),
@@ -162,9 +165,10 @@ where
                     })
                     .collect::<Vec<_>>())
             })
-            .collect::<Result<Vec<_>>>()?
+            .collect::<Result<Vec<_>>>()
             .into_iter()
-            .flat_map(|v| v)
+            .flat_map(|v| v.into_iter())
+            .flat_map(|v| v.into_iter())
             .collect())
     }
 }
@@ -210,8 +214,8 @@ pub struct EntityParserMetadata {
 }
 
 impl<T> GazetteerParser<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     pub fn persist<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         fs::create_dir(path.as_ref()).with_context(|_| {
@@ -252,8 +256,8 @@ where
 }
 
 impl<T> GazetteerParser<T>
-where
-    T: EntityIdentifier,
+    where
+        T: EntityIdentifier,
 {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let metadata_path = path.as_ref().join("metadata.json");
@@ -272,12 +276,12 @@ where
                 let parser = EntityParser::from_folder(
                     path.as_ref().join(&entity_parser_metadata.entity_parser),
                 )
-                .with_context(|_| {
-                    format!(
-                        "Cannot create entity parser from path: {}",
-                        entity_parser_metadata.entity_parser
-                    )
-                })?;
+                    .with_context(|_| {
+                        format!(
+                            "Cannot create entity parser from path: {}",
+                            entity_parser_metadata.entity_parser
+                        )
+                    })?;
                 Ok(GazetteerEntityParser {
                     entity_identifier: T::try_from_identifier(
                         entity_parser_metadata.entity_identifier,
@@ -292,7 +296,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use gazetteer_entity_parser::{gazetteer, EntityValue, Gazetteer, LicenseInfo, ParserBuilder};
+    use gazetteer_entity_parser::{EntityValue, gazetteer, Gazetteer, LicenseInfo, ParserBuilder};
     use snips_nlu_ontology::{
         BuiltinEntityKind, BuiltinGazetteerEntityKind, SlotValue, StringValue,
     };
@@ -449,8 +453,8 @@ mod test {
                 entity_parser: get_ambiguous_music_artist_parser_builder(),
             }],
         }
-        .build()
-        .unwrap();
+            .build()
+            .unwrap();
 
         // When
         let input = "I want to listen to the stones";

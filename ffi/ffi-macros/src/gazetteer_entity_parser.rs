@@ -1,4 +1,4 @@
-use crate::Result;
+use anyhow::*;
 use ffi_utils::{convert_to_c_string, CReprOf, CStringArray, RawPointerConverter};
 use snips_nlu_parsers::{GazetteerEntityMatch, GazetteerParser, GazetteerParserBuilder};
 use std::ffi::CStr;

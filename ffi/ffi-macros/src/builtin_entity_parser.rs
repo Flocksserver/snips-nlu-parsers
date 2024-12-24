@@ -1,5 +1,4 @@
-use crate::Result;
-use failure::ResultExt;
+use anyhow::*;
 use ffi_utils::{convert_to_c_string, CReprOf, CStringArray, RawPointerConverter};
 use snips_nlu_ontology::{BuiltinEntity, BuiltinEntityKind, BuiltinGazetteerEntityKind};
 use snips_nlu_ontology_ffi_macros::{CBuiltinEntity, CBuiltinEntityArray};

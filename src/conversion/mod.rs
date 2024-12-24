@@ -1,7 +1,7 @@
 pub mod gazetteer_entities;
 pub mod rustling;
 
-use crate::errors::*;
+use anyhow::*;
 
 pub trait OntologyFrom<T> {
     fn ontology_from(_: T) -> Self;

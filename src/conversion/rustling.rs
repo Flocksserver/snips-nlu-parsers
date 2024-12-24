@@ -1,6 +1,5 @@
 use crate::conversion::*;
-use crate::errors::Result;
-use failure::format_err;
+use anyhow::*;
 use rustling_ontology::dimension::Precision as RustlingPrecision;
 use rustling_ontology::output::{
     AmountOfMoneyOutput, DatetimeIntervalKind, DatetimeIntervalOutput, DatetimeOutput,
@@ -209,7 +208,7 @@ impl<'a> OntologyFrom<&'a OutputKind> for BuiltinEntityKind {
 }
 
 impl<'a> TryOntologyFrom<&'a BuiltinEntityKind> for OutputKind {
-    fn try_ontology_from(v: &BuiltinEntityKind) -> Result<Self> {
+    fn try_ontology_from(v: &BuiltinEntityKind) -> anyhow::Result<Self> {
         match *v {
             BuiltinEntityKind::AmountOfMoney => Ok(OutputKind::AmountOfMoney),
             BuiltinEntityKind::Duration => Ok(OutputKind::Duration),

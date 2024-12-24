@@ -9,7 +9,6 @@ pub use snips_nlu_ontology::*;
 mod builtin_entities;
 mod builtin_entity_parser;
 mod conversion;
-pub mod errors;
 mod gazetteer_parser;
 #[cfg(test)]
 mod test_utils;

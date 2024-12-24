@@ -1,9 +1,7 @@
 use crate::conversion::*;
-use crate::errors::*;
 use crate::gazetteer_parser::GazetteerParser;
 use crate::parsable::ParsableLanguage;
 use crate::utils::{get_ranges_mapping, NON_SPACE_REGEX, NON_SPACE_SEPARATED_LANGUAGES};
-use failure::{format_err, ResultExt};
 pub use gazetteer_entity_parser::EntityValue;
 use itertools::Itertools;
 use rustling_ontology::{build_parser, OutputKind, Parser as RustlingParser, ResolverContext};
@@ -14,6 +12,7 @@ use std::fs;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use anyhow::*;
 
 pub struct BuiltinEntityParser {
     gazetteer_parser: Option<GazetteerParser<BuiltinGazetteerEntityKind>>,
@@ -230,7 +229,7 @@ pub struct BuiltinParserMetadata {
 
 impl BuiltinEntityParser {
     pub fn persist<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        fs::create_dir(path.as_ref()).with_context(|_| {
+        fs::create_dir(path.as_ref()).with_context(|| {
             format!(
                 "Cannot create builtin entity parser directory at path: {:?}",
                 path.as_ref()
@@ -248,25 +247,25 @@ impl BuiltinEntityParser {
             gazetteer_parser: gazetteer_parser_directory,
         };
         let metadata_path = path.as_ref().join("metadata.json");
-        let metadata_file = fs::File::create(&metadata_path).with_context(|_| {
+        let metadata_file = fs::File::create(&metadata_path).with_context(|| {
             format!("Cannot create metadata file at path: {:?}", metadata_path)
         })?;
         serde_json::to_writer_pretty(metadata_file, &gazetteer_parser_metadata)
-            .with_context(|_| "Cannot serialize builtin parser metadata")?;
+            .with_context(|| "Cannot serialize builtin parser metadata")?;
         Ok(())
     }
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let metadata_path = path.as_ref().join("metadata.json");
-        let metadata_file = fs::File::open(&metadata_path).with_context(|_| {
+        let metadata_file = fs::File::open(&metadata_path).with_context(|| {
             format!(
                 "Cannot open builtin parser metadata file at path: {:?}",
                 metadata_path
             )
         })?;
         let metadata: BuiltinParserMetadata = serde_json::from_reader(metadata_file)
-            .with_context(|_| "Cannot deserialize builtin parser metadata")?;
-        let language = Language::from_str(&metadata.language)?;
+            .with_context(|| "Cannot deserialize builtin parser metadata")?;
+        let language = Language::from_str(&metadata.language).map_err(|e|anyhow!(e))?;
         let mut parser_loader = BuiltinEntityParserLoader::new(language);
         if let Some(gazetteer_parser_dir) = metadata.gazetteer_parser {
             let gazetteer_parser_path = path.as_ref().join(&gazetteer_parser_dir);

@@ -3,8 +3,8 @@ use std::fs;
 use std::fs::File;
 use std::ops::Range;
 use std::path::Path;
+use anyhow::*;
 
-use failure::{format_err, ResultExt};
 pub use gazetteer_entity_parser::{
     EntityValue, Parser as EntityParser, ParserBuilder as EntityParserBuilder,
 };
@@ -14,7 +14,6 @@ use snips_nlu_ontology::{BuiltinEntity, BuiltinGazetteerEntityKind, IntoBuiltinE
 use snips_nlu_utils::string::substring_with_char_range;
 
 use crate::conversion::gazetteer_entities::convert_to_slot_value;
-use crate::errors::*;
 
 pub trait EntityIdentifier:
 Clone + Debug + PartialEq + Serialize + DeserializeOwned + Sized
@@ -35,7 +34,7 @@ impl EntityIdentifier for String {
 
 impl EntityIdentifier for BuiltinGazetteerEntityKind {
     fn try_from_identifier(identifier: String) -> Result<Self> {
-        BuiltinGazetteerEntityKind::from_identifier(&identifier)
+        BuiltinGazetteerEntityKind::from_identifier(&identifier).map_err(|e|anyhow!(e))
     }
 
     fn into_identifier(self) -> String {
@@ -218,7 +217,7 @@ impl<T> GazetteerParser<T>
         T: EntityIdentifier,
 {
     pub fn persist<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        fs::create_dir(path.as_ref()).with_context(|_| {
+        fs::create_dir(path.as_ref()).with_context(|| {
             format!(
                 "Cannot create gazetteer parser directory at path: {:?}",
                 path.as_ref()
@@ -229,7 +228,7 @@ impl<T> GazetteerParser<T>
             let parser_directory = format!("parser_{}", index + 1);
             let parser_path = path.as_ref().join(&parser_directory);
             let entity_identifier = entity_parser.entity_identifier.clone().into_identifier();
-            entity_parser.parser.dump(parser_path).with_context(|_| {
+            entity_parser.parser.dump(parser_path).with_context(|| {
                 format!(
                     "Cannot dump entity parser for entity '{}'",
                     &entity_identifier
@@ -243,14 +242,14 @@ impl<T> GazetteerParser<T>
                 })
         }
         let metadata_path = path.as_ref().join("metadata.json");
-        let metadata_file = File::create(&metadata_path).with_context(|_| {
+        let metadata_file = File::create(&metadata_path).with_context(|| {
             format!(
                 "Cannot create metadata file for gazetteer parser at path: {:?}",
                 metadata_path
             )
         })?;
         serde_json::to_writer_pretty(metadata_file, &gazetteer_parser_metadata)
-            .with_context(|_| "Cannot serialize gazetteer parser metadata")?;
+            .with_context(|| "Cannot serialize gazetteer parser metadata")?;
         Ok(())
     }
 }
@@ -261,14 +260,14 @@ impl<T> GazetteerParser<T>
 {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let metadata_path = path.as_ref().join("metadata.json");
-        let metadata_file = File::open(&metadata_path).with_context(|_| {
+        let metadata_file = File::open(&metadata_path).with_context(|| {
             format!(
                 "Cannot open metadata file for gazetteer parser at path: {:?}",
                 metadata_path
             )
         })?;
         let metadata: GazetteerParserMetadata = serde_json::from_reader(metadata_file)
-            .with_context(|_| "Cannot deserialize gazetteer parser metadata")?;
+            .with_context(|| "Cannot deserialize gazetteer parser metadata")?;
         let entity_parsers = metadata
             .parsers_metadata
             .into_iter()
@@ -276,7 +275,7 @@ impl<T> GazetteerParser<T>
                 let parser = EntityParser::from_folder(
                     path.as_ref().join(&entity_parser_metadata.entity_parser),
                 )
-                    .with_context(|_| {
+                    .with_context(|| {
                         format!(
                             "Cannot create entity parser from path: {}",
                             entity_parser_metadata.entity_parser
